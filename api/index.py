@@ -6,8 +6,8 @@ backend_path = os.path.join(os.path.dirname(__file__), '..', 'backend')
 sys.path.insert(0, backend_path)
 
 try:
-    from app import app
-    # Vercel expects 'app' or 'application'
+    # Use the simplified app without database
+    from app_simple import app
     application = app
 except Exception as e:
     print(f"CRITICAL ERROR loading Flask app: {e}")
