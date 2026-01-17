@@ -18,6 +18,11 @@ class Config:
     
     if _db_url and _db_url.startswith('postgres://'):
         _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+        
+    # Ensure SSL is enabled for Postgres (Required by Vercel/Neon)
+    if _db_url and 'postgresql://' in _db_url and 'sslmode' not in _db_url:
+        joiner = '&' if '?' in _db_url else '?'
+        _db_url = f"{_db_url}{joiner}sslmode=require"
 
     SQLALCHEMY_DATABASE_URI = _db_url or f"sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False

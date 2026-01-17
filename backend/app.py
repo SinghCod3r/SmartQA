@@ -31,8 +31,13 @@ def create_app():
     app.register_blueprint(export_bp)
     
     # Initialize database
-    with app.app_context():
-        init_db()
+    try:
+        with app.app_context():
+            init_db()
+    except Exception as e:
+        print(f"Failed to initialize database: {e}")
+        # Continue starting up so we can return proper JSON errors instead of a hard crash
+        pass
     
     # Create upload folder
     os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
