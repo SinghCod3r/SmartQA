@@ -11,13 +11,32 @@ from models.database import engine, generated_files
 from config import Config
 
 generate_bp = Blueprint('generate', __name__)
-ai_service = AIService()
+_ai_service = None
+
+def get_ai_service():
+    """Lazy load the AI service to prevent startup crashes."""
+    global _ai_service
+    if _ai_service is None:
+        try:
+            _ai_service = AIService()
+        except Exception as e:
+            print(f"Failed to initialize AI Service: {e}")
+            return None
+    return _ai_service
 
 
 @generate_bp.route('/api/providers', methods=['GET'])
 def get_providers():
     """Get list of available AI providers."""
-    providers = ai_service.get_available_providers()
+    service = get_ai_service()
+    if not service:
+         # Fallback if service completely fails to load
+         return jsonify({
+            'providers': [{'id': 'mock', 'name': 'Demo Mode (Fallback)', 'description': 'Service failed to load'}],
+            'default': 'mock'
+        }), 200
+        
+    providers = service.get_available_providers()
     return jsonify({
         'providers': providers,
         'default': Config.DEFAULT_AI_PROVIDER
@@ -98,7 +117,11 @@ def generate_test_cases():
             project_type = 'Web'
         
         # Generate test cases with specified provider
-        result = ai_service.generate_test_cases(requirements, project_type, ai_provider)
+        service = get_ai_service()
+        if not service:
+             return jsonify({'error': 'AI Service failed to initialize'}), 500
+             
+        result = service.generate_test_cases(requirements, project_type, ai_provider)
         
         # Save to database
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

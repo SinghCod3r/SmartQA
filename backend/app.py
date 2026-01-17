@@ -42,7 +42,11 @@ def create_app():
     #     pass
     
     # Create upload folder
-    os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+    try:
+        os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: Failed to create upload folder: {e}")
+        # On Vercel, this might fail if Config.UPLOAD_FOLDER is incorrectly set to read-only path
     
     # Error handlers
     @app.errorhandler(400)
