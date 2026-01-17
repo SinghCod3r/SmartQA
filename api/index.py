@@ -1,29 +1,13 @@
-import sys
-import os
+from flask import Flask, jsonify
 
-# Add backend to path
-backend_path = os.path.join(os.path.dirname(__file__), '..', 'backend')
-sys.path.insert(0, backend_path)
+app = Flask(__name__)
 
-try:
-    # Use minimal app to test Vercel deployment
-    from app_minimal import app
-    application = app
-except Exception as e:
-    print(f"CRITICAL ERROR loading Flask app: {e}")
-    import traceback
-    traceback.print_exc()
-    
-    # Create a minimal error app
-    from flask import Flask, jsonify
-    app = Flask(__name__)
-    
-    @app.route('/<path:path>')
-    def error_handler(path=''):
-        return jsonify({
-            'error': 'Application failed to initialize',
-            'details': str(e),
-            'path': path
-        }), 500
-    
-    application = app
+@app.route('/')
+@app.route('/api')
+@app.route('/api/')
+def index():
+    return jsonify({'status': 'success', 'message': 'Flask is working on Vercel!'}), 200
+
+@app.route('/api/test')
+def test():
+    return jsonify({'test': 'passed'}), 200
