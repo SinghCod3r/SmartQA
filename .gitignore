@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.env.local
+
+# Database
+*.db
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deployment
+.vercel/
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Backend Uploads
+backend/uploads/
+!backend/uploads/.gitkeep

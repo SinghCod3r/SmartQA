@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SmartQA Dashboard - Generate and manage your test cases">
+    <title>Dashboard | SmartQA</title>
+    <link rel="stylesheet" href="static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="dashboard-page">
+    <!-- Navigation -->
+    <nav class="navbar navbar-dashboard">
+        <div class="nav-container">
+            <a href="dashboard.html" class="nav-logo">
+                <span class="logo-icon">🧪</span>
+                <span class="logo-text">SmartQA</span>
+            </a>
+            <div class="nav-user">
+                <span id="userName" class="user-name">User</span>
+                <button id="logoutBtn" class="nav-btn nav-btn-outline">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Dashboard -->
+    <main class="dashboard-main">
+        <div class="dashboard-container">
+            <!-- Left Panel: Input -->
+            <section class="dashboard-panel input-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Generate Test Cases</h2>
+                    <p class="panel-subtitle">Enter requirements or upload a document</p>
+                </div>
+
+                <form id="generateForm" class="generate-form">
+                    <!-- Requirements Input -->
+                    <div class="form-group">
+                        <label for="requirements" class="form-label">Requirements</label>
+                        <textarea id="requirements" name="requirements" class="form-textarea" placeholder="Paste your software requirements here...
+
+Example:
+- User should be able to login with email and password
+- System should validate email format
+- Password must be at least 8 characters
+- Show error message for invalid credentials" rows="10"></textarea>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="form-group">
+                        <label class="form-label">Or Upload Document</label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="fileInput" name="file" class="file-input" accept=".pdf,.docx,.txt">
+                            <label for="fileInput" class="file-upload-label">
+                                <span class="upload-icon">📁</span>
+                                <span class="upload-text" id="uploadText">Choose file or drag & drop</span>
+                                <span class="upload-hint">PDF, DOCX, or TXT (max 16MB)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Project Type -->
+                    <div class="form-group">
+                        <label for="projectType" class="form-label">Project Type</label>
+                        <select id="projectType" name="projectType" class="form-select">
+                            <option value="Web">Web Application</option>
+                            <option value="Mobile">Mobile Application</option>
+                            <option value="API">API / Backend</option>
+                            <option value="Desktop">Desktop Application</option>
+                        </select>
+                    </div>
+
+                    <!-- AI Provider Selection -->
+                    <div class="form-group">
+                        <label for="aiProvider" class="form-label">AI Provider <span class="label-hint">(Free tiers
+                                available)</span></label>
+                        <select id="aiProvider" name="aiProvider" class="form-select">
+                            <option value="mock">🎯 Demo Mode (No API key)</option>
+                        </select>
+                        <div id="providerInfo" class="provider-info"></div>
+                    </div>
+
+                    <div id="formError" class="error-message hidden"></div>
+
+                    <button type="submit" class="btn btn-primary btn-full" id="generateBtn">
+                        <span class="btn-icon">🚀</span>
+                        <span class="btn-text">Generate Test Cases</span>
+                        <span class="btn-loader hidden"></span>
+                    </button>
+                </form>
+            </section>
+
+            <!-- Right Panel: Results -->
+            <section class="dashboard-panel results-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Generated Test Cases</h2>
+                    <div class="panel-actions" id="resultActions" style="display: none;">
+                        <button class="btn btn-sm btn-secondary" id="downloadExcelBtn">
+                            📊 Download Excel
+                        </button>
+                        <button class="btn btn-sm btn-secondary" id="downloadCsvBtn">
+                            📄 Download CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results Summary -->
+                <div id="resultsSummary" class="results-summary hidden">
+                    <div class="summary-item">
+                        <span class="summary-value" id="totalCases">0</span>
+                        <span class="summary-label">Total</span>
+                    </div>
+                    <div class="summary-item high">
+                        <span class="summary-value" id="highPriority">0</span>
+                        <span class="summary-label">High</span>
+                    </div>
+                    <div class="summary-item medium">
+                        <span class="summary-value" id="mediumPriority">0</span>
+                        <span class="summary-label">Medium</span>
+                    </div>
+                    <div class="summary-item low">
+                        <span class="summary-value" id="lowPriority">0</span>
+                        <span class="summary-label">Low</span>
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="results-table-wrapper">
+                    <div id="emptyState" class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <h3>No test cases yet</h3>
+                        <p>Enter your requirements and click "Generate Test Cases" to get started</p>
+                    </div>
+
+                    <div id="loadingState" class="loading-state hidden">
+                        <div class="loading-spinner"></div>
+                        <p>Generating test cases with AI...</p>
+                        <p class="loading-hint">This may take a few seconds</p>
+                    </div>
+
+                    <table id="testCasesTable" class="test-cases-table hidden">
+                        <thead>
+                            <tr>
+                                <th>Test ID</th>
+                                <th>Module</th>
+                                <th>Scenario</th>
+                                <th>Priority</th>
+                                <th>Severity</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="testCasesBody">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- History Section -->
+        <section class="history-section">
+            <div class="dashboard-container">
+                <div class="panel-header">
+                    <h2 class="panel-title">📜 Generation History</h2>
+                </div>
+                <div id="historyList" class="history-list">
+                    <div class="empty-state small">
+                        <p>No previous generations</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Test Case Detail Modal -->
+    <div id="testCaseModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Test Case Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+            </div>
+        </div>
+    </div>
+
+    <script src="static/js/api.js"></script>
+    <script src="static/js/dashboard.js"></script>
+</body>
+
+</html>
