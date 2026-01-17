@@ -19,7 +19,7 @@ def create_app():
     # Enable CORS for frontend
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:5000"],
+            "origins": "*",  # Allow all origins for Vercel deployment
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }

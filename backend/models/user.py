@@ -1,6 +1,7 @@
 import bcrypt
 from datetime import datetime
-from .database import get_db_connection
+from sqlalchemy import select
+from .database import engine, users
 
 
 class User:
@@ -27,70 +28,66 @@ class User:
     @staticmethod
     def create(name: str, email: str, password: str) -> 'User':
         """Create a new user in the database."""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
         password_hash = User.hash_password(password)
         
         try:
-            cursor.execute(
-                'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
-                (name, email, password_hash)
-            )
-            conn.commit()
-            user_id = cursor.lastrowid
-            
-            return User(
-                id=user_id,
-                name=name,
-                email=email,
-                password_hash=password_hash,
-                created_at=datetime.now()
-            )
+            with engine.connect() as conn:
+                # Insert user
+                stmt = users.insert().values(
+                    name=name,
+                    email=email,
+                    password_hash=password_hash
+                )
+                result = conn.execute(stmt)
+                conn.commit()
+                
+                # Get ID
+                user_id = result.inserted_primary_key[0]
+                
+                return User(
+                    id=user_id,
+                    name=name,
+                    email=email,
+                    password_hash=password_hash,
+                    created_at=datetime.now()
+                )
         except Exception as e:
-            conn.rollback()
             raise e
-        finally:
-            conn.close()
     
     @staticmethod
     def find_by_email(email: str) -> 'User':
         """Find a user by their email address."""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row:
-            return User(
-                id=row['id'],
-                name=row['name'],
-                email=row['email'],
-                password_hash=row['password_hash'],
-                created_at=row['created_at']
-            )
+        with engine.connect() as conn:
+            stmt = select(users).where(users.c.email == email)
+            result = conn.execute(stmt)
+            row = result.first()
+            
+            if row:
+                return User(
+                    id=row.id,
+                    name=row.name,
+                    email=row.email,
+                    password_hash=row.password_hash,
+                    created_at=row.created_at
+                )
         return None
     
     @staticmethod
     def find_by_id(user_id: int) -> 'User':
         """Find a user by their ID."""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row:
-            return User(
-                id=row['id'],
-                name=row['name'],
-                email=row['email'],
-                password_hash=row['password_hash'],
-                created_at=row['created_at']
-            )
+        with engine.connect() as conn:
+            stmt = select(users).where(users.c.id == user_id)
+            result = conn.execute(stmt)
+            row = result.first()
+            
+            if row:
+                return User(
+                    id=row.id,
+                    name=row.name,
+                    email=row.email,
+                    password_hash=row.password_hash,
+                    created_at=row.created_at
+                )
         return None
     
     def to_dict(self) -> dict:

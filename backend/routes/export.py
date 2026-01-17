@@ -6,25 +6,22 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, send_file, Response
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from sqlalchemy import select, delete, desc
 from routes.auth import get_current_user
-from models.database import get_db_connection
+from models.database import engine, generated_files
 
 export_bp = Blueprint('export', __name__)
 
 
 def get_user_file(user_id: int, file_id: int):
     """Get a file from the database if it belongs to the user."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM generated_files WHERE id = ? AND user_id = ?
-    ''', (file_id, user_id))
-    
-    row = cursor.fetchone()
-    conn.close()
-    
-    return row
+    with engine.connect() as conn:
+        stmt = select(generated_files).where(
+            (generated_files.c.id == file_id) &
+            (generated_files.c.user_id == user_id)
+        )
+        result = conn.execute(stmt)
+        return result.first()
 
 
 @export_bp.route('/api/download/excel/<int:file_id>', methods=['GET'])
@@ -39,7 +36,7 @@ def download_excel(file_id):
         return jsonify({'error': 'File not found'}), 404
     
     try:
-        test_cases_data = json.loads(row['test_cases'])
+        test_cases_data = json.loads(row.test_cases)
         test_cases = test_cases_data.get('test_cases', [])
         
         # Create workbook
@@ -109,7 +106,7 @@ def download_excel(file_id):
         wb.save(output)
         output.seek(0)
         
-        filename = f"{row['filename']}.xlsx"
+        filename = f"{row.filename}.xlsx"
         
         return send_file(
             output,
@@ -135,7 +132,7 @@ def download_csv(file_id):
         return jsonify({'error': 'File not found'}), 404
     
     try:
-        test_cases_data = json.loads(row['test_cases'])
+        test_cases_data = json.loads(row.test_cases)
         test_cases = test_cases_data.get('test_cases', [])
         
         # Create CSV in memory
@@ -171,7 +168,7 @@ def download_csv(file_id):
         csv_content = output.getvalue()
         output.close()
         
-        filename = f"{row['filename']}.csv"
+        filename = f"{row.filename}.csv"
         
         return Response(
             csv_content,
@@ -193,28 +190,27 @@ def get_history():
     if not user:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT id, filename, project_type, created_at 
-        FROM generated_files 
-        WHERE user_id = ? 
-        ORDER BY created_at DESC
-        LIMIT 50
-    ''', (user.id,))
-    
-    rows = cursor.fetchall()
-    conn.close()
-    
-    history = []
-    for row in rows:
-        history.append({
-            'id': row['id'],
-            'filename': row['filename'],
-            'project_type': row['project_type'],
-            'created_at': row['created_at']
-        })
+    with engine.connect() as conn:
+        stmt = select(
+            generated_files.c.id, 
+            generated_files.c.filename, 
+            generated_files.c.project_type, 
+            generated_files.c.created_at
+        ).where(
+            generated_files.c.user_id == user.id
+        ).order_by(
+            desc(generated_files.c.created_at)
+        ).limit(50)
+        
+        result = conn.execute(stmt)
+        history = []
+        for row in result:
+            history.append({
+                'id': row.id,
+                'filename': row.filename,
+                'project_type': row.project_type,
+                'created_at': row.created_at
+            })
     
     return jsonify({'history': history}), 200
 
@@ -226,18 +222,15 @@ def delete_history_item(file_id):
     if not user:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with engine.connect() as conn:
+        stmt = delete(generated_files).where(
+            (generated_files.c.id == file_id) & 
+            (generated_files.c.user_id == user.id)
+        )
+        result = conn.execute(stmt)
+        conn.commit()
     
-    cursor.execute('''
-        DELETE FROM generated_files WHERE id = ? AND user_id = ?
-    ''', (file_id, user.id))
-    
-    deleted = cursor.rowcount > 0
-    conn.commit()
-    conn.close()
-    
-    if deleted:
+    if result.rowcount > 0:
         return jsonify({'message': 'File deleted successfully'}), 200
     else:
         return jsonify({'error': 'File not found'}), 404

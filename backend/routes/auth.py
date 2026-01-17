@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 import secrets
 from datetime import datetime, timedelta
+from sqlalchemy import select, delete
 from models.user import User
-from models.database import get_db_connection
+from models.database import engine, sessions
 from config import Config
 
 auth_bp = Blueprint('auth', __name__)
@@ -13,19 +14,21 @@ def create_session_token(user_id: int) -> str:
     token = secrets.token_hex(32)
     expires_at = datetime.now() + timedelta(hours=Config.TOKEN_EXPIRY_HOURS)
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Remove any existing sessions for this user
-    cursor.execute('DELETE FROM sessions WHERE user_id = ?', (user_id,))
-    
-    # Create new session
-    cursor.execute(
-        'INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)',
-        (user_id, token, expires_at)
-    )
-    conn.commit()
-    conn.close()
+    with engine.connect() as conn:
+        # Remove any existing sessions for this user
+        conn.execute(
+            delete(sessions).where(sessions.c.user_id == user_id)
+        )
+        
+        # Create new session
+        conn.execute(
+            sessions.insert().values(
+                user_id=user_id,
+                token=token,
+                expires_at=expires_at
+            )
+        )
+        conn.commit()
     
     return token
 
@@ -35,24 +38,27 @@ def validate_token(token: str) -> int:
     if not token:
         return None
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        'SELECT user_id, expires_at FROM sessions WHERE token = ?',
-        (token,)
-    )
-    row = cursor.fetchone()
-    conn.close()
+    with engine.connect() as conn:
+        stmt = select(sessions.c.user_id, sessions.c.expires_at).where(sessions.c.token == token)
+        result = conn.execute(stmt)
+        row = result.first()
     
     if not row:
         return None
     
-    expires_at = datetime.fromisoformat(row['expires_at'])
+    # Handle datetime conversion if necessary (SQLAlchemy usually handles this, but just in case)
+    expires_at = row.expires_at
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at)
+        except ValueError:
+            # Fallback for some SQLite formats
+            expires_at = datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S.%f')
+            
     if expires_at < datetime.now():
         return None
     
-    return row['user_id']
+    return row.user_id
 
 
 def get_current_user():
@@ -113,6 +119,7 @@ def signup():
         }), 201
         
     except Exception as e:
+        print(f"Signup error: {str(e)}") # Add logging for debug
         return jsonify({'error': 'An error occurred during signup'}), 500
 
 
@@ -153,6 +160,7 @@ def login():
         }), 200
         
     except Exception as e:
+        print(f"Login error: {str(e)}")
         return jsonify({'error': 'An error occurred during login'}), 500
 
 
@@ -164,11 +172,11 @@ def logout():
         if auth_header.startswith('Bearer '):
             token = auth_header[7:]
             
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM sessions WHERE token = ?', (token,))
-            conn.commit()
-            conn.close()
+            with engine.connect() as conn:
+                conn.execute(
+                    delete(sessions).where(sessions.c.token == token)
+                )
+                conn.commit()
         
         return jsonify({'message': 'Logged out successfully'}), 200
         

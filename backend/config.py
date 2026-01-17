@@ -11,11 +11,17 @@ class Config:
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
     
     # Database settings
-    # Database settings
-    if os.environ.get('VERCEL'):
-        DATABASE_PATH = '/tmp/database.db'
-    else:
-        DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')
+    # Use DATABASE_URL if available (for Vercel/Production), otherwise fallback to local SQLite
+    # SQLAlchemy requires 'postgresql://' but some providers give 'postgres://'
+    _db_url = os.environ.get('DATABASE_URL')
+    if _db_url and _db_url.startswith('postgres://'):
+        _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+
+    SQLALCHEMY_DATABASE_URI = _db_url or f"sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')}"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # Keep DATABASE_PATH for backward compatibility if needed, but we should rely on URI
+    DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')
     
     # Anthropic API settings
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')

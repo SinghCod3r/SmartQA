@@ -3,10 +3,11 @@ import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
+from sqlalchemy import select
 from routes.auth import get_current_user
 from services.ai_service import AIService
 from services.file_parser import FileParser
-from models.database import get_db_connection
+from models.database import engine, generated_files
 from config import Config
 
 generate_bp = Blueprint('generate', __name__)
@@ -26,19 +27,20 @@ def get_providers():
 def save_generated_file(user_id: int, filename: str, requirements: str, 
                         test_cases: dict, project_type: str) -> int:
     """Save generated test cases to the database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        INSERT INTO generated_files (user_id, filename, requirements, test_cases, project_type)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (user_id, filename, requirements, json.dumps(test_cases), project_type))
-    
-    file_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    
-    return file_id
+    with engine.connect() as conn:
+        stmt = generated_files.insert().values(
+            user_id=user_id,
+            filename=filename,
+            requirements=requirements,
+            test_cases=json.dumps(test_cases),
+            project_type=project_type
+        )
+        result = conn.execute(stmt)
+        conn.commit()
+        
+        # Get the ID of the inserted row
+        file_id = result.inserted_primary_key[0]
+        return file_id
 
 
 @generate_bp.route('/api/generate', methods=['POST'])
@@ -132,27 +134,25 @@ def get_generated_file(file_id):
     if not user:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM generated_files WHERE id = ? AND user_id = ?
-    ''', (file_id, user.id))
-    
-    row = cursor.fetchone()
-    conn.close()
+    with engine.connect() as conn:
+        stmt = select(generated_files).where(
+            (generated_files.c.id == file_id) & 
+            (generated_files.c.user_id == user.id)
+        )
+        result = conn.execute(stmt)
+        row = result.first()
     
     if not row:
         return jsonify({'error': 'File not found'}), 404
     
-    test_cases = json.loads(row['test_cases'])
+    test_cases = json.loads(row.test_cases)
     
     return jsonify({
-        'id': row['id'],
-        'filename': row['filename'],
-        'requirements': row['requirements'],
+        'id': row.id,
+        'filename': row.filename,
+        'requirements': row.requirements,
         'test_cases': test_cases.get('test_cases', []),
         'summary': test_cases.get('summary', {}),
-        'project_type': row['project_type'],
-        'created_at': row['created_at']
+        'project_type': row.project_type,
+        'created_at': row.created_at
     }), 200

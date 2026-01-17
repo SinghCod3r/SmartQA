@@ -1,71 +1,58 @@
-import sqlite3
 import os
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy.sql import func
+from sqlalchemy.pool import QueuePool
 from config import Config
 
+# Create engine
+engine = create_engine(
+    Config.SQLALCHEMY_DATABASE_URI, 
+    pool_size=5, 
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800
+)
 
-def get_db_connection():
-    """Get a database connection with row factory enabled."""
-    db_exists = os.path.exists(Config.DATABASE_PATH)
-    
-    conn = sqlite3.connect(Config.DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    
-    if not db_exists:
-        create_tables(conn)
-        
-    return conn
+metadata = MetaData()
 
+# Define tables
+users = Table('users', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String, nullable=False),
+    Column('email', String, unique=True, nullable=False),
+    Column('password_hash', String, nullable=False),
+    Column('created_at', DateTime, server_default=func.now())
+)
 
-def create_tables(conn):
-    """Create tables in the database."""
-    cursor = conn.cursor()
-    
-    # Create users table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Create generated_files table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS generated_files (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            filename TEXT NOT NULL,
-            requirements TEXT,
-            test_cases TEXT NOT NULL,
-            project_type TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    ''')
-    
-    # Create sessions table for token management
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            token TEXT UNIQUE NOT NULL,
-            expires_at TIMESTAMP NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    ''')
-    
-    conn.commit()
+generated_files = Table('generated_files', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id'), nullable=False),
+    Column('filename', String, nullable=False),
+    Column('requirements', Text),
+    Column('test_cases', Text, nullable=False), # Stores JSON string
+    Column('project_type', String, nullable=False),
+    Column('created_at', DateTime, server_default=func.now())
+)
 
+sessions = Table('sessions', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id'), nullable=False),
+    Column('token', String, unique=True, nullable=False),
+    Column('expires_at', DateTime, nullable=False),
+    Column('created_at', DateTime, server_default=func.now())
+)
 
 def init_db():
-    """Initialize the database (script entry point)."""
-    conn = get_db_connection()
-    # Tables are created automatically by get_db_connection if missing
+    """Initialize the database (create tables)."""
+    with engine.begin() as conn:
+        metadata.create_all(conn)
     print("Database initialized successfully!")
-    conn.close()
+
+def get_db_connection():
+    """Return a raw connection for legacy support (not recommended, use engine.connect())."""
+    # This is a temporary bridge or we just update all callers.
+    # We will update all callers to use engine directly or a helper.
+    return engine.connect()
 
 
 if __name__ == '__main__':
