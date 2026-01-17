@@ -126,6 +126,24 @@ def get_me():
         return jsonify({'error': 'Unauthorized'}), 401
     return jsonify({'user': {'name': user['name'], 'email': user['email']}}), 200
 
+@app.route('/api/providers', methods=['GET'])
+def get_providers():
+    try:
+        from services.ai_service import AIService
+        from config import Config
+        
+        service = AIService()
+        providers = service.get_available_providers()
+        return jsonify({
+            'providers': providers,
+            'default': Config.DEFAULT_AI_PROVIDER
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'providers': [{'id': 'mock', 'name': 'Demo Mode', 'description': 'No API key configured'}],
+            'default': 'mock'
+        }), 200
+
 @app.route('/api/generate', methods=['POST'])
 def generate():
     user = get_current_user()
