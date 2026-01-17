@@ -31,13 +31,15 @@ def create_app():
     app.register_blueprint(export_bp)
     
     # Initialize database
-    try:
-        with app.app_context():
-            init_db()
-    except Exception as e:
-        print(f"Failed to initialize database: {e}")
-        # Continue starting up so we can return proper JSON errors instead of a hard crash
-        pass
+    # ERROR FIX: Do not initialize DB on startup in Vercel. 
+    # It causes timeouts/crashes if the DB is slow to respond during cold start.
+    # We will use a manual route /api/init-db instead.
+    # try:
+    #     with app.app_context():
+    #         init_db()
+    # except Exception as e:
+    #     print(f"Failed to initialize database: {e}")
+    #     pass
     
     # Create upload folder
     os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
@@ -104,6 +106,16 @@ def create_app():
             }), 200
         except Exception as e:
             return jsonify({'error': f"Debug endpoint failed: {str(e)}"}), 500
+
+    @app.route('/api/init-db', methods=['GET'])
+    def manual_db_init():
+        """Manually trigger database initialization (table creation)."""
+        try:
+            from models.database import init_db
+            init_db()
+            return jsonify({'message': 'Database initialized successfully'}), 200
+        except Exception as e:
+            return jsonify({'error': f"Database initialization failed: {str(e)}"}), 500
     
     return app
 
