@@ -11,9 +11,11 @@ class Config:
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
     
     # Database settings
-    # Use DATABASE_URL if available (for Vercel/Production), otherwise fallback to local SQLite
+    # Database settings
+    # Use POSTGRES_URL (Vercel default) or DATABASE_URL (Generic)
     # SQLAlchemy requires 'postgresql://' but some providers give 'postgres://'
-    _db_url = os.environ.get('DATABASE_URL')
+    _db_url = os.environ.get('POSTGRES_URL') or os.environ.get('DATABASE_URL')
+    
     if _db_url and _db_url.startswith('postgres://'):
         _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
