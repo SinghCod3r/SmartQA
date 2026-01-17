@@ -100,9 +100,14 @@ def create_app():
             try:
                 from sqlalchemy import text
                 from models.database import engine
-                with engine.connect() as conn:
-                    result = conn.execute(text("SELECT 1"))
-                    db_status = "Connected"
+                
+                if engine is None:
+                    db_status = "Engine Init Failed"
+                    db_error = "Check server logs for CRITICAL error during import"
+                else:
+                    with engine.connect() as conn:
+                        result = conn.execute(text("SELECT 1"))
+                        db_status = "Connected"
             except Exception as e:
                 db_status = "Failed"
                 db_error = str(e)

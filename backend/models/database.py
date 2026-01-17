@@ -6,10 +6,14 @@ from config import Config
 
 # Create engine
 # Use NullPool for Vercel/Serverless to prevent connection issues with frozen processes
-engine = create_engine(
-    Config.SQLALCHEMY_DATABASE_URI, 
-    poolclass=NullPool
-)
+try:
+    engine = create_engine(
+        Config.SQLALCHEMY_DATABASE_URI, 
+        poolclass=NullPool
+    )
+except Exception as e:
+    print(f"CRITICAL: Failed to create DB engine: {e}")
+    engine = None
 
 metadata = MetaData()
 
