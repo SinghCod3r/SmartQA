@@ -70,6 +70,40 @@ def create_app():
             'status': 'healthy',
             'message': 'Smart QA Test Case Generator API is running'
         }), 200
+
+    # DEBUG: Diagnostic endpoint to help find Vercel issues
+    @app.route('/api/debug', methods=['GET'])
+    def debug_status():
+        try:
+            # Check Env Vars (Masked)
+            env_vars = {
+                'VERCEL': os.environ.get('VERCEL'),
+                'POSTGRES_URL_SET': bool(os.environ.get('POSTGRES_URL')),
+                'DATABASE_URL_SET': bool(os.environ.get('DATABASE_URL')),
+                'DB_URI_CONFIGURED': app.config.get('SQLALCHEMY_DATABASE_URI', '').split('://')[0] if app.config.get('SQLALCHEMY_DATABASE_URI') else 'None'
+            }
+            
+            # Check DB Connection
+            db_status = "Unknown"
+            db_error = None
+            try:
+                from sqlalchemy import text
+                from models.database import engine
+                with engine.connect() as conn:
+                    result = conn.execute(text("SELECT 1"))
+                    db_status = "Connected"
+            except Exception as e:
+                db_status = "Failed"
+                db_error = str(e)
+                
+            return jsonify({
+                'status': 'debug',
+                'environment': env_vars,
+                'database_status': db_status,
+                'database_error': db_error
+            }), 200
+        except Exception as e:
+            return jsonify({'error': f"Debug endpoint failed: {str(e)}"}), 500
     
     return app
 
