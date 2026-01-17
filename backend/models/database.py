@@ -1,16 +1,14 @@
 import os
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.sql import func
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import NullPool
 from config import Config
 
 # Create engine
+# Use NullPool for Vercel/Serverless to prevent connection issues with frozen processes
 engine = create_engine(
     Config.SQLALCHEMY_DATABASE_URI, 
-    pool_size=5, 
-    max_overflow=10,
-    pool_timeout=30,
-    pool_recycle=1800
+    poolclass=NullPool
 )
 
 metadata = MetaData()

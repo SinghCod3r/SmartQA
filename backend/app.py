@@ -69,6 +69,11 @@ def create_app():
     def internal_error(error):
         return jsonify({'error': 'Internal server error'}), 500
     
+    # Root endpoint for basic availability check
+    @app.route('/', methods=['GET'])
+    def index():
+        return "Smart QA Backend is Running", 200
+
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])
     def health_check():
