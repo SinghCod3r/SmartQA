@@ -69,44 +69,52 @@ class AIService:
                 print(f"Anthropic init error: {e}")
     
     def get_available_providers(self) -> list:
-        """Get list of available providers based on configured API keys."""
+        """Get list of available providers."""
         available = []
         
-        # OpenRouter first (recommended free option)
-        if Config.OPENROUTER_API_KEY:
-            available.append({
-                'id': 'openrouter',
-                **self.PROVIDERS['openrouter']
-            })
+        # Add all providers regardless of key status
+        # This allows users to see options even if keys aren't set yet
         
-        if Config.GOOGLE_API_KEY:
-            available.append({
-                'id': 'gemini',
-                **self.PROVIDERS['gemini']
-            })
+        # OpenRouter
+        available.append({
+            'id': 'openrouter',
+            **self.PROVIDERS['openrouter'],
+            'configured': bool(Config.OPENROUTER_API_KEY)
+        })
         
-        if Config.GROQ_API_KEY:
-            available.append({
-                'id': 'groq',
-                **self.PROVIDERS['groq']
-            })
+        # Gemini
+        available.append({
+            'id': 'gemini',
+            **self.PROVIDERS['gemini'],
+            'configured': bool(Config.GOOGLE_API_KEY)
+        })
         
-        if Config.TOGETHER_API_KEY:
-            available.append({
-                'id': 'together',
-                **self.PROVIDERS['together']
-            })
+        # Groq
+        available.append({
+            'id': 'groq',
+            **self.PROVIDERS['groq'],
+            'configured': bool(Config.GROQ_API_KEY)
+        })
         
-        if Config.ANTHROPIC_API_KEY:
-            available.append({
-                'id': 'anthropic',
-                **self.PROVIDERS['anthropic']
-            })
+        # Together AI
+        available.append({
+            'id': 'together',
+            **self.PROVIDERS['together'],
+            'configured': bool(Config.TOGETHER_API_KEY)
+        })
+        
+        # Anthropic
+        available.append({
+            'id': 'anthropic',
+            **self.PROVIDERS['anthropic'],
+            'configured': bool(Config.ANTHROPIC_API_KEY)
+        })
         
         # Always add mock/demo mode
         available.append({
             'id': 'mock',
-            **self.PROVIDERS['mock']
+            **self.PROVIDERS['mock'],
+            'configured': True
         })
         
         return available
